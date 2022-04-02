@@ -1,0 +1,205 @@
+﻿<?xml version="1.0" encoding="utf-8"?><Data>
+<ProtocolVersion>1</ProtocolVersion>
+<OSCE_Feedback_version>2.0</OSCE_Feedback_version>
+<LastUpdateTimeUTC>2022-01-02 00:07:42</LastUpdateTimeUTC>
+<Products>
+<Product>
+<Server>
+<GUID>a4aaa737-def2-465e-8931-9cccc2646d58</GUID>
+<ACs>
+<AC Key="OSRKY4TUQHDQAMP3AD9GMC3U63NYHTM" Service="ANTISPYWARE" Product_Code="OS" AP_Name="ON" Language="M" OS="WW" ExpiredDays="0" />
+<AC Key="OSPKDSKG3JQ5TC9CDF8M93RLSDHMJCC" Service="ANTISPYWARE" Product_Code="OS" AP_Name="ON" Language="M" OS="WW" ExpiredDays="488" />
+<AC Key="OSW3ZR4RL3H43J2DYGZ7GVXA8ZZTJSQ" Service="ANTISPYWARE" Product_Code="OS" AP_Name="ON" Language="J" OS="WW" ExpiredDays="873" />
+<AC Key="OSRKY4TUQHDQAMP3AD9GMC3U63NYHTM" Service="ANTIVIRUS" Product_Code="OS" AP_Name="ON" Language="M" OS="WW" ExpiredDays="0" />
+<AC Key="OSPKDSKG3JQ5TC9CDF8M93RLSDHMJCC" Service="ANTIVIRUS" Product_Code="OS" AP_Name="ON" Language="M" OS="WW" ExpiredDays="488" />
+<AC Key="OSTFZL8UW37UR6B7R92KNTBXA2DMDTK" Service="ANTIVIRUS" Product_Code="OS" AP_Name="OC" Language="J" OS="WW" ExpiredDays="825" />
+<AC Key="OSW3ZR4RL3H43J2DYGZ7GVXA8ZZTJSQ" Service="ANTIVIRUS" Product_Code="OS" AP_Name="ON" Language="J" OS="WW" ExpiredDays="874" />
+<AC Key="OSRKY4TUQHDQAMP3AD9GMC3U63NYHTM" Service="DCS" Product_Code="OS" AP_Name="ON" Language="M" OS="WW" ExpiredDays="0" />
+<AC Key="OSPKDSKG3JQ5TC9CDF8M93RLSDHMJCC" Service="DCS" Product_Code="OS" AP_Name="ON" Language="M" OS="WW" ExpiredDays="488" />
+<AC Key="OSW3ZR4RL3H43J2DYGZ7GVXA8ZZTJSQ" Service="DCS" Product_Code="OS" AP_Name="ON" Language="J" OS="WW" ExpiredDays="873" />
+<AC Key="EI24H6YNABT4TRFDECQZ242SX2ASY4Q" Service="DLP" Product_Code="EI" AP_Name="DL" Language="M" OS="WW" ExpiredDays="" />
+</ACs>
+<ProductVersion>12.0.6040</ProductVersion>
+<HTTP_Server_Type>1</HTTP_Server_Type>
+<DatabaseMode>1</DatabaseMode>
+<SQLAuthMode>0</SQLAuthMode>
+<RoleService>0</RoleService>
+<HybridMode>0</HybridMode>
+<InternalProxyType>0</InternalProxyType>
+<EndpointLocation>0</EndpointLocation>
+<AllowAgentUpdateFromOUS>0</AllowAgentUpdateFromOUS>
+<AgentOUSCount>0</AgentOUSCount>
+<UseCustomScanServer>0</UseCustomScanServer>
+<CustomScanServerListCount>0</CustomScanServerListCount>
+<ProductLanguage>ja</ProductLanguage>
+<OSType>1</OSType>
+<Upgrade>1</Upgrade>
+<OSVersion>10.0.14393</OSVersion>
+<OSLanguageID>1041</OSLanguageID>
+<PccNT_BuildNum>6040</PccNT_BuildNum>
+<Hotfix>
+<Item Version="12.0" Build="4638" Released_Date="2018-01-31" Installed_Date="2019-07-16" />
+<Item Version="12.0" Build="5383" Released_Date="2019-06-11" Installed_Date="2019-07-16" />
+<Item Version="12.0" Build="6040" Released_Date="2021-01-15" Installed_Date="2021-02-23" />
+</Hotfix>
+<AgentGlobalSetting>
+<DeferScanOnFileOperation>1</DeferScanOnFileOperation>
+<BM_NFC>0</BM_NFC>
+<AES256_Encrypt>0</AES256_Encrypt>
+<MUI_Mode_Enable>0</MUI_Mode_Enable>
+<Enable_ELAM>1</Enable_ELAM>
+<SPSRelay>0</SPSRelay>
+</AgentGlobalSetting>
+<AgentGrouping>0</AgentGrouping>
+<SmartProtection>
+<FileReputation>1</FileReputation>
+<FileReputation_ScanQueryMode>http</FileReputation_ScanQueryMode>
+<WebReputation>1</WebReputation>
+<SmartFeedback>0</SmartFeedback>
+<SmartFeedbackSuspiciousProgram>0</SmartFeedbackSuspiciousProgram>
+</SmartProtection>
+<IntegratedServer>
+<VirtualAnalyzer_C_and_C_list>0</VirtualAnalyzer_C_and_C_list>
+</IntegratedServer>
+<CM_Register>0</CM_Register>
+<BT_SuspiciousObjectList>
+<SUSP_OBJ_LIST_USE_CM>0</SUSP_OBJ_LIST_USE_CM>
+<BT_USE_URL>0</BT_USE_URL>
+<BT_USE_IP>0</BT_USE_IP>
+<BT_USE_DNS>0</BT_USE_DNS>
+<BT_USE_FILE>0</BT_USE_FILE>
+<BT_AUTO_NOTIFY>0</BT_AUTO_NOTIFY>
+</BT_SuspiciousObjectList>
+<OPP>
+<OPP_Enable>0</OPP_Enable>
+<OPP_BlockShareFolder>0</OPP_BlockShareFolder>
+<OPP_BlockPorts>0</OPP_BlockPorts>
+<OPP_DenyWrite>0</OPP_DenyWrite>
+<OPP_PackerSolution>0</OPP_PackerSolution>
+<OPP_MutexBlock>0</OPP_MutexBlock>
+</OPP>
+<EdgeAgent>
+<EdgeAgent_Register>0</EdgeAgent_Register>
+<EdgeAgent_UseProxy>0</EdgeAgent_UseProxy>
+</EdgeAgent>
+<PLS>
+<Item Name="OSCE_ADDON_DLP" Status="7" Version="1_4_1.0.1034" />
+<Item Name="OSCE_ADDON_PLM" Status="7" Version="1_4_2.3.1390" />
+<Item Name="OSCE_ADDON_PLM" Status="7" Version="1_4_2.3.4514" />
+</PLS>
+</Server>
+<EndPoint>
+<seat>134</seat>
+<ScanMode SmartScan="134" Convention="0" />
+<CPU_Type CPU_64bit="134" CPU_32bit="0" />
+<ClientOS>
+<Item Version="10.0.1" EmbeddedPlatform="0" OSType="1" count="127" />
+<Item Version="10.0.2" EmbeddedPlatform="0" OSType="1" count="3" />
+<Item Version="10.0.3" EmbeddedPlatform="0" OSType="1" count="4" />
+</ClientOS>
+<OSCEClientVersion>
+<Item Version="12.0.6040" count="134" />
+</OSCEClientVersion>
+<SWITCH>
+<Item Name="SWITCH_AEGIS" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="SWITCH_FW" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="SWITCH_NCIE" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="SWITCH_CCSF" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="SWITCH_DLP" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+</SWITCH>
+<REALTIME_SCAN>
+<Item Name="RAVAGE" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="CVE_EXPLOIT" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="CVE_ACTION_PASS" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="CVE_ACTION_QUARANTINE" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="NETWORK_SCAN" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+</REALTIME_SCAN>
+<NCIE_CFG>
+<Item Name="ENABLE_CNP" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="ACTION_CNP_LOG" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="ACTION_CNP_BLOCK" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="ACTION_FOR_USERDEF" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="ENABLE_RR" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="ACTION_RR_LOG" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="ACTION_RR_BLOCK" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="ENABLE_GC" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+</NCIE_CFG>
+<Firewall enable="0" disable="134" />
+<BehaviourMonitor>
+<Item Name="BM" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="AEGIS_TD" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="AEGIS_TD_AGGRESSIVE" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="BM_ADC" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="AEGIS_DRE" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="BM_SRP" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="AEGIS_UMH" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="AEGIS_UMH_Expolit" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="MeerkatDesktop" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="MeerkatLogOnly" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="BM_Event_Monitor" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+</BehaviourMonitor>
+<AgentGlobalSettingInClient>
+<Item Name="BM_NFC" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+</AgentGlobalSettingInClient>
+<WebReputation>
+<Internal>
+<WR enable="127" disable="7" />
+<BES enable="0" disable="134" />
+<AssessmentMode enable="0" disable="134" />
+<HTTPS_URL enable="0" disable="134" />
+<ScanCommonHTTPport enable="0" disable="134" />
+<SendQuerySmartProtectionServer enable="0" disable="134" />
+<SecurityLevel high="0" medium="0" low="134" />
+</Internal>
+<External>
+<WR enable="127" disable="7" />
+<BES enable="0" disable="134" />
+<AssessmentMode enable="0" disable="134" />
+<HTTPS_URL enable="0" disable="134" />
+<ScanCommonHTTPport enable="0" disable="134" />
+<SendQuerySmartProtectionServer enable="0" disable="134" />
+<SecurityLevel high="0" medium="134" low="0" />
+</External>
+</WebReputation>
+<PLS>
+<Item Name="OSCE_ADDON_DLP" Status="0" count="134" />
+<Item Name="OSCE_ADDON_VDI" Status="0" count="134" />
+<Item Name="OSCE_ADDON_VDI" Status="1" count="0" />
+</PLS>
+<SAMPLE_SUBMISSION>
+<Item Name="ENABLE_SS" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+</SAMPLE_SUBMISSION>
+<PRIVILEGES_OTHERS>
+<Item Name="DISP_TRENDX_ALERT" server_on="7" server_off="0" desktop_on="127" desktop_off="0" />
+<Item Name="AGENT_COEXIST_MODE" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="FORBID_NO_PROG_UPD" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="FORBID_NO_ENG_UPD" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="INDEPENDENT_MODE" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+</PRIVILEGES_OTHERS>
+<DLP_CFG>
+<Item Name="DAC_ENABLE_IN" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="DAC_ENABLE_OUT" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<DLP_POLICY_COUNT>5</DLP_POLICY_COUNT>
+<DAC_POLICY_COUNT>10</DAC_POLICY_COUNT>
+</DLP_CFG>
+<TRENDX_CFG>
+<Item Name="TRENDX" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="TRENDX_FILE" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="TRENDX_FILE_QUARANTINE" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="TRENDX_FILE_LOG" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item Name="TRENDX_PROCESS" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="TRENDX_PROCESS_TERMINATE" server_on="0" server_off="7" desktop_on="127" desktop_off="0" />
+<Item Name="TRENDX_PROCESS_LOG" server_on="0" server_off="7" desktop_on="0" desktop_off="127" />
+<Item EXCEPTIONS_COUNT_FROM_SETTING="0" />
+<Item EXCEPTIONS_COUNT_FROM_LOG="0" />
+</TRENDX_CFG>
+</EndPoint>
+<xdr_onboarding>
+<xdr_is_onboarded>0</xdr_is_onboarded>
+<xdr_get_onboarding_url_status>1</xdr_get_onboarding_url_status>
+<xdr_prepare_xbc_patch_status>1</xdr_prepare_xbc_patch_status>
+<xdr_acceptxbcpii>0</xdr_acceptxbcpii>
+</xdr_onboarding>
+</Product>
+</Products>
+</Data>
