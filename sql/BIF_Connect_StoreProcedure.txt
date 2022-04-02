@@ -1,0 +1,394 @@
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROC [BIFC_ETL].[PRC_INS_XML_RAW_CONFIG] @source [varchar](25),@xml_version [varchar](15) AS
+BEGIN
+
+PRINT 'Need at least 1 line script.';
+
+
+if (OBJECT_ID('tempdb..#XPath_CFG') is not null)
+	drop table #XPath_CFG
+
+SELECT ROW_NUMBER() OVER (order by r.[source], r.[xml_version], r.[xpath]) as [ID]
+,r.[source]
+,r.[xml_version]
+,coalesce(c.[level], 0) as [level]
+,r.[xpath]
+,coalesce(c.[raw_group_root], r.[xpath]) as [raw_group_root]
+,coalesce(c.[group_root], r.[xpath]) as [group_root]
+,coalesce(c.[master_detail], 'M') as [master_detail]
+,coalesce(c.[default_column_name], r.[xpath]) as [column_name]
+,coalesce(c.[default_data_type], 'nvarchar') as [data_type]
+,coalesce(c.[default_data_length], '1000') as [data_length]
+,coalesce(c.[sample_value], '') as [sample_value]
+into #XPath_CFG
+FROM [BIFC].[TBL_RAW_XPATH] r
+left join [BIFC_ETL].TBL_XML_RAW_CONFIG c on r.[source] = c.[source] and r.xml_version = c.xml_version and convert(varbinary(max), r.xpath) = convert(varbinary(max), c.xpath)
+where r.[source] = @source
+and r.[xml_version] = @xml_version
+--and c.xpath is null
+
+--select * from #XPath_CFG
+declare @ix int = 1, @level int = 0;
+declare @sql nvarchar(max) = ''
+, @chkUnicodeSql nvarchar(max) = ''
+, @full_xpath varchar(1000) = ''
+declare @cnt int = (select count(*) from #XPath_CFG)
+declare @xpath varchar(max) = ''
+declare @group_root varchar(1000) = '', @data_type varchar(15) = '', @data_length varchar(10) = '';
+declare @xmlNameSpaces varchar(500) = (select code_desc from BIFC_ETL.TBL_ETL_CODE where code_name = 'XmlNameSpace' and code_id = @source + '_' + @xml_version)
+
+while @ix <= @cnt
+begin
+
+	select @full_xpath = xpath
+	, @xpath = SUBSTRING(xpath, len(xpath) - CHARINDEX('/', REVERSE(xpath)) + 2, len(xpath))
+	, @group_root = SUBSTRING(xpath, 1, len(xpath) - CHARINDEX('/', REVERSE(xpath)))
+	, @data_type = data_type
+	, @data_length = data_length
+	, @level = [level]
+	from #XPath_CFG
+	where ID = @ix
+
+	print @xpath + ' [' + @group_root + ']'
+
+	if (@level = 0 and @data_type='nvarchar' and @data_length='1000')
+	begin
+
+	if (CHARINDEX('@', @xpath, 1) = 0)
+		select @xpath = @xpath + '[1]'
+
+	set @sql = 'create table #tmp ([file_id] bigint, [CNT] int);
+	insert into #tmp
+	select [file_id], count(t.c.value(''' + @xpath + ''', ''varchar(100)'')) CNT
+	from BIFC.TBL_DATA_RAW r with (nolock)
+	cross apply file_content.nodes(''' + @group_root + ''') t(c)
+	where [source] = ''' + @source + '''
+	and [xml_version] = ''' + @xml_version + '''
+	and file_date >= cast(DATEADD(MM, -1, getutcdate()) as date)
+	and file_content.value(''(' + @full_xpath + ')[1]'', ''varchar(100)'') is not null
+	group by [file_id]
+	--having count(t.c.value('''+ @xpath + ''', ''varchar(100)'')) > 1;
+	
+	if (exists(select 1 from #tmp where CNT > 1))
+	begin
+		update #XPath_CFG 
+		set master_detail = ''D'' 
+		,[raw_group_root] = ''' + @group_root + '''
+		where convert(varbinary(max), xpath) =  convert(varbinary(max), N''' + @full_xpath + ''')
+	end
+	else
+	begin
+		truncate table #tmp;
+		insert into #tmp
+		select [file_id], count(t.c.value(''.'', ''varchar(100)'')) as CNT
+		from BIFC.TBL_DATA_RAW r with (nolock)
+		cross apply file_content.nodes(''' + @full_xpath + ''') t(c)
+		where [source] = ''' + @source + '''
+		and [xml_version] = ''' + @xml_version + '''
+		and file_date >= cast(DATEADD(MM, -1, getutcdate()) as date)
+		and file_content.value(''(' + @full_xpath + ')[1]'', ''varchar(100)'') is not null
+		group by [file_id]
+		--having count(t.c.value(''.'', ''varchar(100)'')) > 1;
+
+		if (exists(select 1 from #tmp where CNT > 1))
+		begin
+			update #XPath_CFG 
+			set master_detail = ''D'' 
+			,[raw_group_root] = ''' + @full_xpath + '''
+			where Convert(varbinary(max), xpath) = convert(varbinary(max), N''' + @full_xpath + ''')
+		end
+	end
+	drop table #tmp;'
+	
+	print @sql
+	exec sp_executesql @sql
+
+	end
+	--@level = 0
+	
+	select @ix = @ix + 1;
+end
+
+update #XPath_CFG
+set raw_group_root = null
+where master_detail = 'M'
+
+--select * from #XPath_CFG
+
+--declare @ix int = 1;
+--declare @cnt int = (select count(*) from #XPath_CFG)
+--declare @xpath varchar(max) = ''
+--declare @group_root varchar(1000) = '';
+
+update #XPath_CFG
+set column_name = ''
+
+declare @name varchar(100) = ''
+select @ix = 1
+while (@ix <= @cnt)
+begin
+
+	select @xpath = xpath, @name = '', @group_root = raw_group_root from #XPath_CFG where [ID] = @ix
+
+	select * into #xpath from BIFC.FNC_SplitString(@xpath, '/');
+
+	if (@xpath = @group_root)
+		select top 1 @name = replace(data, '@', '') + IIF(@name = '', '', '_') + @name from #xpath order by sno desc
+	else
+		select top 2 @name = replace(data, '@', '') + IIF(@name = '', '', '_') + @name from #xpath order by sno desc
+	
+	declare @searchIx int = 3
+
+	while (exists(select 1 from #XPath_CFG where column_name = @name) 
+		and ((select count(*) from #xpath) - @searchIx + 1) >= 1)
+	begin	
+
+		select @Name = IIF(data is null, '', data + '_') + @name
+		from #xpath 
+		where sno = ((select count(*) from #xpath) - @searchIx + 1);
+
+		select @searchIx = @searchIx + 1
+	end
+
+	drop table #xpath	
+
+	update #XPath_CFG
+	set [raw_group_root] = IIF(master_detail = 'M'
+								, SUBSTRING(@xpath, 1, len(@xpath) - CHARINDEX('/', REVERSE(@xpath)))
+								, [raw_group_root])
+	, [level] = (select count(*) from BIFC.FNC_SplitString(@xpath, '/'))
+	, [column_name] = @name
+	where ID = @ix
+
+	set @ix = @ix + 1
+
+end
+
+update m
+set m.ID = d.ID
+from #XPath_CFG m
+join (
+		select ROW_NUMBER() over (order by raw_group_root desc) ID , xpath
+		from #XPath_CFG
+) d on convert(varbinary(max), m.xpath) = convert(varbinary(max), d.xpath)
+
+declare @root_level int = 0;
+select distinct top 2 @root_level = [level] from #XPath_CFG order by [level];
+print 'root_level:'  + cast(@root_level as varchar(5))
+
+select @ix = 1
+
+while (@ix <= @cnt)
+begin
+
+	select @group_root = raw_group_root from #XPath_CFG where ID = @ix and [level] > @root_Level;
+	print cast(@ix as varchar(10)) + '[' + @group_root + ']'
+
+	if (len(@group_root) > 0)
+		update m set group_root = @group_root from #XPath_CFG m where xpath like @group_root + '/%'
+	else
+		update m set group_root = raw_group_root from #XPath_CFG m where ID = @ix
+
+	select @ix = @ix + 1, @group_root = ''
+end;
+
+with uniqueGroup as
+(
+	select ROW_NUMBER() over (order by group_root desc) [ID]
+	, group_root
+	, master_detail
+	, (select count(*) from BIFC.FNC_SplitString(group_root, '/')) as [level]	
+	from (
+			select group_root, MIN(master_detail) master_detail from #XPath_CFG group by group_root
+	) x
+)
+
+update m
+set m.[group_root] = IIF((CHARINDEX(x.next_group, m.group_root, 1) = 1 
+						and x.master_detail = 'M'
+						and x.group_level - x.next_group_level = 1)
+						, x.next_group
+						, m.group_root)
+from #XPath_CFG m 
+left join (
+	select m1.ID, m1.group_root
+	, m1.master_detail
+	, m1.[level] as [group_level]
+	, m2.group_root as [next_group]
+	, m2.[level] as [next_group_level]
+	from uniqueGroup m1
+	left join uniqueGroup m2 on m2.ID = m1.ID + 1
+) x on m.group_root = x.group_root
+
+declare @Master_Detail char(1) = ''
+
+--declare @ix int = 1
+--, @sql nvarchar(max) = ''
+--, @full_xpath varchar(1000) = ''
+--, @cnt int = (select count(*) from #XPath_CFG)
+--, @xpath varchar(max) = ''
+--, @group_root varchar(1000) = ''
+--, @source varchar(25) = 'TippingPoint'
+--, @xml_version varchar(10) = '1.0'
+--, @xmlNameSpaces varchar(500) = ''
+--, @chkUnicodeSql nvarchar(max) = ''
+
+select @ix = 1;
+
+while (@ix <= @cnt)
+begin
+
+select @full_xpath = xpath
+, @Master_Detail = master_detail
+, @xpath = SUBSTRING(xpath, len(xpath) - CHARINDEX('/', REVERSE(xpath)) + 2, len(xpath))
+, @group_root = raw_group_root
+from #XPath_CFG where ID = @ix
+
+select @sql = '', @chkUnicodeSql = ''
+
+if exists(select 1 from #XPath_CFG where ID=@ix and sample_value = '' and data_type = 'nvarchar' and data_length = '1000')
+begin
+
+if (@Master_Detail = 'D')
+begin
+
+	if (@full_xpath = @group_root)
+		select @xpath = '.'
+	else if (CHARINDEX('@', @xpath, 1) = 0)
+		select @xpath = @xpath + '[1]'
+
+	select @sql = 'declare @text nvarchar(1000) = '''';
+	' + IIF(len(@xmlNameSpaces) > 0, 'WITH XMLNAMESPACES (DEFAULT ''' + @xmlNameSpaces + ''')
+', '' ) + '	select top 1 @text = [text]
+	from (
+	select distinct t.c.value(''' + @xpath + ''', ''nvarchar(1000)'') as [text]
+	from BIFC.TBL_DATA_RAW with (nolock, index(ix_file_date))
+	cross apply file_content.nodes(''' + @group_root + ''') t(c)
+	where [source] = ''' + @source + ''' and xml_version = ''' + @xml_version + '''
+	and file_date >= cast(DATEADD(MM, -1, getutcdate()) as date)
+	and file_content.value(''(' + @full_xpath + ')[1]'', ''varchar(100)'') is not null
+	) x order by len([text]) desc;
+	'
+
+	select @chkUnicodeSql = IIF(len(@xmlNameSpaces) > 0, 'WITH XMLNAMESPACES (DEFAULT ''' + @xmlNameSpaces + ''')
+', '' ) + 'select top 1 [file_id]
+	from BIFC.TBL_DATA_RAW with (nolock)
+	cross apply file_content.nodes(''' + @group_root + ''') t(c)
+	where [source] = ''' + @source + ''' and xml_version = ''' + @xml_version + '''
+	and file_date >= cast(DATEADD(MM, -1, getutcdate()) as date)
+	and t.c.value(''' + @xpath + ''', ''nvarchar(1000)'') <> t.c.value(''' + @xpath + ''', ''varchar(1000)'')'
+
+end
+else
+begin
+
+	select @sql = 'declare @text nvarchar(1000) = '''';
+	' + IIF(len(@xmlNameSpaces) > 0, 'WITH XMLNAMESPACES (DEFAULT ''' + @xmlNameSpaces + ''')
+', '' ) + 'select top 1 @text = [text]
+	from (
+	select distinct [file_content].value(''(' + @full_xpath +')[1]'', ''nvarchar(1000)'') as [text]
+	from BIFC.TBL_DATA_RAW with (nolock, index(ix_file_date))
+	where [source] = ''' + @source + ''' and xml_version = ''' + @xml_version + '''
+	and file_date >= cast(DATEADD(MM, -1, getutcdate()) as date)
+	and file_content.value(''(' + @full_xpath + ')[1]'', ''varchar(100)'') is not null
+	) x order by len([text]) desc;'
+
+	select @chkUnicodeSql = IIF(len(@xmlNameSpaces) > 0, 'WITH XMLNAMESPACES (DEFAULT ''' + @xmlNameSpaces + ''')
+', '' ) + 'select top 1 [file_id]
+	from BIFC.TBL_DATA_RAW with (nolock)
+	where [source] = ''' + @source + ''' and xml_version = ''' + @xml_version + '''
+	and file_date >= cast(DATEADD(MM, -1, getutcdate()) as date)
+	and [file_content].value(''(' + @full_xpath +')[1]'', ''nvarchar(1000)'') <>  [file_content].value(''(' + @full_xpath +')[1]'', ''varchar(1000)'')'
+	
+end
+
+select @sql = @sql + '
+select @text = coalesce(@text, '''')
+if len(@text) >= 8 and ISDATE(substring(@text, 1, 23)) = 1
+	update #XPath_CFG set data_type = ''datetime'', data_length = '''', sample_value = @text where ID = ' + cast(@ix as varchar(10)) + '
+else if (ISNUMERIC(@text) = 1 and charindex('','', @text) = 0)
+begin
+
+	declare @sql nvarchar(max) = ''if (SQL_VARIANT_PROPERTY('' + @text + '', ''''scale'''') = 0)
+		update #XPath_CFG set data_type = ''''int'''', data_length = '''''''', sample_value = '' + @text + '' where ID = ' + cast(@ix as varchar(10)) + '
+	else
+		update #XPath_CFG set data_type = ''''numeric'''', data_length = cast(SQL_VARIANT_PROPERTY('' + @text + '', ''''precision'''') as varchar(5)) + '''','''' + cast(SQL_VARIANT_PROPERTY('' + @text + '', ''''scale'''') as varchar(5)), sample_value = '' + @text + '' where ID = ' + cast(@ix as varchar(10)) + '''
+
+	exec sp_executesql @sql
+
+end
+else
+	update #XPath_CFG set data_type = ''varchar'', data_length = cast(len(@text) as varchar(10)), sample_value = @text where ID = ' + cast(@ix as varchar(10));
+
+print @sql
+exec sp_executesql @sql
+
+if ((select data_type from #XPath_CFG where ID = @ix) = 'varchar')
+begin
+
+	select @chkUnicodeSql = 'if exists(' + @chkUnicodeSql + ')	update #XPath_CFG set data_type = ''nvarchar'' where ID = ' + cast(@ix as varchar(10)) + ';'
+	exec sp_executesql @chkUnicodeSql
+
+end
+
+end
+-- sample_value = '' and data_type = 'nvarchar' and data_length = '1000'
+
+select @ix = @ix + 1;
+
+end
+
+update #XPath_CFG
+set data_length = IIF(len(sample_value)*1.75 < 10, 10, CEILING(len(sample_value)*1.75))
+where data_type in ('varchar', 'nvarchar');
+
+INSERT INTO [BIFC_ETL].TBL_XML_RAW_CONFIG ([source], xml_version, [level], xpath, raw_group_root, group_root, master_detail, default_column_name, default_data_type, default_data_length, sample_value)
+select [source]
+,[xml_version]
+,[level]
+,[xpath]
+,[raw_group_root]
+,[group_root]
+,[master_detail]
+,[column_name]
+,[data_type]
+,[data_length]
+,[sample_value] 
+from #XPath_CFG m
+where not exists(select 1 from BIFC_ETL.TBL_XML_RAW_CONFIG 
+					where [source] = @source 
+					and [xml_version] = @xml_version 
+					and convert(varbinary(max), [xpath]) = convert(varbinary(max), m.xpath))
+order by [xpath];
+
+update r
+set r.default_data_type = c.data_type
+, r.default_data_length = c.data_length
+from BIFC_ETL.TBL_XML_RAW_CONFIG r
+join #XPath_CFG c on r.[source] = c.[source]
+				and r.[xml_version] = c.[xml_version]
+				and convert(varbinary(max), r.[xpath]) = convert(varbinary(max), c.[xpath])
+				and (r.default_data_type <> c.data_type	or r.default_data_length < c.data_length)
+
+drop table #XPath_CFG;
+
+update rc
+set rc.group_level = f.group_level
+from BIFC_ETL.TBL_XML_RAW_CONFIG rc
+join (
+
+select raw_group_root, max(t.sno) as group_level
+from BIFC_ETL.TBL_XML_RAW_CONFIG
+cross apply BIFC.FNC_SplitString(raw_group_root, '/') t
+where [group_level] is null
+group by raw_group_root
+
+) f on rc.raw_group_root = f.raw_group_root
+
+
+END
+GO
