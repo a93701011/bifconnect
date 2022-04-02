@@ -4,6 +4,10 @@ xml_veraion = '2.0'
 
 # COMMAND ----------
 
+poc_folder/xml
+
+# COMMAND ----------
+
 import json,os
 import pyspark.sql.functions as F
 from pyspark.sql.types import StructField, StructType, StringType, ArrayType, LongType, TimestampType, BinaryType, IntegerType, DateType
