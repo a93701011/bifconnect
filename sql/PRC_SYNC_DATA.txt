@@ -1,0 +1,287 @@
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROC [BIFC_ETL].[PRC_SYNC_DATA] @DB [varchar](50),@Project_Name [varchar](50),@StartDate [date],@EndDate [date] AS
+Begin
+
+PRINT 'Need at least 1 line script.';
+
+/*
+declare @Schema varchar(20) = ''
+--, @DB varchar(50) = 'BIF_CONNECT'
+--, @Project_Name varchar(50) = 'BIFC_OSCE'
+--, @StartDate date = '2015/12/21'
+--, @EndDate date = '2015/12/21'
+
+if (OBJECT_ID('tempdb..#GroupList') is not null)
+	drop table #GroupList
+
+--1:Name/Value Pair  2:Flat table
+Select ROW_NUMBER() over (order by isnull(Data_Source_View, ''), group_name) as [ID], * into #GroupList
+from (
+select Group_Name
+, Table_Schema
+, 1 as ResultType
+, Name_Value_Pair_Table_Name as [Table_Name]
+, Data_Source_View
+, isnull(With_File_Date,0) With_File_Date
+from BIFC_ETL.TBL_PROJECT_GROUP
+where Project_Name = @Project_Name
+and Name_Value_Pair_Table_Name is not null
+union 
+select Group_Name
+, Table_Schema
+, 2 as ResultType
+, Flat_Table_Name as [Table_Name]
+, Data_Source_View
+, isnull(With_File_Date,0) With_File_Date
+from BIFC_ETL.TBL_PROJECT_GROUP
+where Project_Name = @Project_Name
+and Flat_Table_Name is not null
+) x 
+
+declare @ix int = 1
+, @groupName varchar(100) = ''
+, @fullTableName varchar(150) = ''
+, @resultType int = 0
+, @with_file_date bit = 0
+, @initial bit = 0
+, @sql nvarchar(max) = ''
+, @cols nvarchar(max) = ''
+, @sql_chk nvarchar(max) = ''
+, @data_source_view varchar(500) = ''
+, @sdate varchar(10) = (select format(@StartDate, 'yyyy/MM/dd', 'en-US'))
+, @edate varchar(10) = (select format(@EndDate, 'yyyy/MM/dd', 'en-US'))
+, @source varchar(25) = ''
+, @xmlversion varchar(15) = ''
+
+while(@ix <= (select max(ID) from #GroupList))
+begin
+
+select @groupName = group_name
+, @fullTableName = QUOTENAME(@DB) + '.' + QUOTENAME(Table_Schema) + '.' + QUOTENAME(Table_Name)
+, @resultType = ResultType
+, @with_file_date = With_File_Date
+, @Schema = Table_Schema
+, @data_source_view = isnull(Data_Source_View, '')
+, @source = ''
+, @xmlversion = ''
+from #GroupList 
+where [ID] = @ix
+
+print @groupName;
+
+select @source = @source + IIF(sno=1, data, '')
+, @xmlversion = @xmlversion + IIF(sno=2, data, '')
+from BIFC.FNC_SplitString(@groupName, '_')
+
+
+--print @groupName
+--create schema
+set @sql = 'use ' + QUOTENAME(@DB) + ';
+if not exists(select 1 from ' + QUOTENAME(@DB) + '.sys.schemas where [name] = '''+ @Schema +''')
+	exec(''create schema ' + QUOTENAME(@Schema) + ' AUTHORIZATION [dbo]'');'
+exec sp_executesql @sql;
+
+--create table
+select @sql = '[File_ID] [bigint]' + IIF(@with_file_date = 1, ', [File_Date] [date]', '')
+, @cols = '[File_ID]' + IIF(@with_file_date = 1, ', [File_Date]', '')
+
+if (@resultType = 2)
+begin
+--flat table
+if (@data_source_view = '')
+begin
+
+select @sql = @sql + ', ' + QUOTENAME(m.column_name) + ' ' + QUOTENAME(m.data_type)
++ IIF(len(m.data_length) > 0, '(' + m.data_length + ')', '') + '
+' , @cols = @cols + ', ' + QUOTENAME(COLUMN_NAME)
+from (
+
+select ROW_NUMBER() over (partition by p.column_name order by data_type desc, try_parse(data_length as int) desc) as ix
+, p.column_name, p.data_type, p.data_length, s.sort
+from BIFC_ETL.TBL_XML_PARSER_CONFIG p
+join (
+	select project_group_id, column_name, min(sort) as sort from BIFC_ETL.TBL_XML_PARSER_CONFIG group by project_group_id, column_name
+) s on p.project_group_id=s.project_group_id and p.column_name=s.column_name
+join BIFC_ETL.TBL_PROJECT_GROUP g 
+	on p.project_group_id = g.Project_Group_id
+	and g.group_name = @groupName
+	and g.Project_Name = @Project_Name
+
+) m where m.ix = 1
+order by m.Sort 
+
+end
+else
+begin
+
+select @sql = @sql + ', ' + QUOTENAME(COLUMN_NAME) + ' ' + QUOTENAME([DATA_TYPE]) 
++ IIF(CHARACTER_MAXIMUM_LENGTH is not null, concat('(', CHARACTER_MAXIMUM_LENGTH, ')')  ,'') + '
+' from BIF_CONNECT_RAW.INFORMATION_SCHEMA.COLUMNS
+where QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME) = @data_source_view
+and [COLUMN_NAME] not in ('file_id', 'file_date')
+order by ORDINAL_POSITION
+
+end
+
+end
+else if (@resultType = 1)
+begin
+
+declare @category varchar(300), @data_type varchar(100) = '', @data_length int = 0
+select @category = coalesce(p.category, '')
+, @data_type = IIF(@data_type = 'nvarchar', @data_type, IIF(charindex('int', p.data_type, 1) = 0, 'nvarchar', 'bigint'))
+, @data_length = IIF(IIF(ISNUMERIC(p.data_length)=1, cast(p.data_length as numeric), 10) > @data_length
+					, IIF(ISNUMERIC(p.data_length)=1, cast(p.data_length as numeric), 10), @data_length)
+from BIFC_ETL.TBL_XML_PARSER_CONFIG p
+join BIFC_ETL.TBL_PROJECT_GROUP g 
+		on p.project_group_id = g.Project_Group_id 
+		and g.group_name = @groupName
+		and g.Project_Name = @Project_Name
+
+if (@data_type = 'nvarchar' and @data_length < 10)
+	set @data_length = 10
+
+if (len(@category) = 0)
+begin
+
+select @sql = @sql + ', 
+[group] [varchar](100) NOT NULL,
+[row_id] [uniqueidentifier] NOT NULL,
+[column_name] [varchar](1000) NULL,
+[column_value] [nvarchar](max) NULL
+'
+end
+else
+begin
+
+select @sql = @sql + ', 
+[Category] [varchar](300) NOT NULL,
+[Name] [varchar](1000) NULL,
+' + IIF(charindex('int', @data_type, 1) > 0, '[count] [bigint] NULL'
+,'[Value] [nvarchar](' + cast(@data_length as varchar(20)) + ') NULL') + '
+'
+
+end
+
+
+
+end
+
+select @sql = 'Create Table ' + @fullTableName + '(
+' + @sql + ') on [BIF_Connect_Data]
+with (Data_Compression = Page);
+CREATE CLUSTERED INDEX [cx_' + @groupName + '] ON ' + @fullTableName + '
+(
+	[file_id] DESC
+) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON)
+'
+
+IF (OBJECT_ID(@fullTableName) is not null)
+begin
+
+--check column name, data type, sort
+--if (@resultType = 2)
+begin
+
+--delete data between @sdate and @edate
+if (@data_source_view = '')
+begin
+
+set @sql_chk = 'select file_id into #delList 
+from BIFC.TBL_DATA_RAW r with (nolock, index(Ix_File_Date))
+where r.[source] = ''' + @source + '''
+and r.[xml_version] = ''' + @xmlversion + '''
+and r.[file_date] >= ''' + @sdate + ''' and r.[file_date] < DateAdd(day, 1, ''' + @edate + ''');'
+
+end
+else
+begin
+
+set @sql_chk = 'select distinct file_id into #delList 
+from ' +  @data_source_view  + ' r with (nolock)
+where r.[file_date] >= ''' + @sdate + ''' and r.[file_date] < DateAdd(day, 1, ''' + @edate + ''');'
+
+end
+
+set @sql_chk = @sql_chk + '
+delete f from ' + @fullTableName + ' f
+where exists(select 1 from #delList d where d.[file_id] = f.[file_id]);
+drop table #delList;'
+
+--print @sql_Chk
+--exec sp_executesql @sql_chk
+
+end
+
+end
+
+IF (OBJECT_ID(@fullTableName) is null)
+begin
+
+--print @sql
+exec sp_executesql @sql
+
+end
+
+--insert sql
+if (@data_source_view = '')
+	select @sql = 'exec BIFC_ETL.PRC_SEL_XML_PARSER_RESULT '''+ @Project_Name +''', ''' + @groupName + ''', ' + cast(@resultType as varchar(1)) + ', null, ''' + @sdate + ''', ''' + @edate + ''', ' + cast(@with_file_date as varchar(1)) + ';'
+else
+begin
+
+if (@resultType = 1)
+begin
+
+declare @columns nvarchar(max) = '';
+set @sql = ''
+
+select @sql = @sql + IIF(len(@sql) = 0, '', '
+, ') + 'cast([' + column_name + '] as nvarchar(max)) as [' + column_name + ']'
+, @columns = @columns + IIF(len(@columns) = 0, '', ', ') + '[' + column_name + ']'
+from BIF_CONNECT_RAW.INFORMATION_SCHEMA.COLUMNS
+where QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME) = @data_source_view
+and COLUMN_NAME not in ('file_id', 'file_date')
+order by ORDINAL_POSITION;
+
+select @sql = 'select m.[file_id], ' + IIF(@with_file_date = 1,'m.[file_date], ' , '') + 'newid() as [row_id], ' + @sql + '
+from ' + @data_source_view + ' m
+where m.[file_date] >= ''' + format(@StartDate, 'yyyy-MM-dd') + ''' and m.[file_date] < ''' + format(DateAdd(day, 1, @EndDate), 'yyyy-MM-dd') + '''
+and not exists(select top 1 1 from ' + @fullTableName + ' r with (nolock) where m.[file_id] = r.[file_id])'
+
+select @sql = 'select [file_id], ' + IIF(@with_file_date = 1,'m.[file_date], ' , '') + '''' +  @groupName + ''' as [group], [row_id], [column_name], [column_value]
+from (
+' + @sql + '
+) p unpivot ([column_value] for [column_name] in (' + @columns + ')) x'
+
+
+end
+else if (@resultType = 2)
+begin
+
+select @sql = 'select * from ' + @data_source_view + ' m with (nolock) 
+where m.[file_date] >= ''' + format(@StartDate, 'yyyy-MM-dd') + ''' and m.[file_date] < ''' + format(DateAdd(day, 1, @EndDate), 'yyyy-MM-dd') + '''
+and not exists(select top 1 1 from ' + @fullTableName + ' r with (nolock) where m.[file_id] = r.[file_id]);'
+
+end
+
+end
+
+select @sql = 'insert into ' + @fullTableName + IIF(@data_source_view = '' and @resultType = 2, '(' + @cols + ')', '') + '
+' + @sql;
+
+--print @sql
+exec sp_executesql @sql
+
+select @ix = @ix + 1
+
+end
+
+drop table #GroupList;
+*/
+
+END
+GO

@@ -1,0 +1,266 @@
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROC [BIFC_ETL].[PRC_SEL_XML_PARSER_RESULT] @project [varchar](150),@group_name [varchar](100),@result_type [tinyint],@file_id [bigint],@start_date [date],@end_date [date],@with_file_date [bit],@debug [bit] AS 
+begin
+
+PRINT 'Need at least 1 line script.';
+
+/*
+declare @sql nvarchar(max) = '', @root_node varchar(1000) = '', @maxLevel int = 0
+, @source varchar(25) = '', @xml_version varchar(15) = '', @category varchar(300) = '';
+
+select top 1 @source = r.[source], @xml_version = r.xml_version, @category = coalesce(m.category, '')
+ from BIFC_ETL.TBL_XML_PARSER_CONFIG m
+join BIFC_ETL.TBL_XML_RAW_CONFIG r on m.xpath_id = r.xpath_id
+join BIFC_ETL.TBL_PROJECT_GROUP g on m.project_group_id = g.project_group_id
+where g.Project_Name = @project
+and g.Group_Name = @group_name
+
+if (len(@source) = 0)
+	return;
+
+declare @columns varchar(max) = ''
+declare @xmlNameSpaces varchar(500) = (select code_desc from BIFC_ETL.TBL_ETL_CODE where code_name = 'XmlNameSpace' and code_id = @source + '_' + @xml_version)
+
+select top 1 @root_node = r.raw_group_root, @maxLevel = r.[level]
+from BIFC_ETL.TBL_XML_PARSER_CONFIG	m
+join BIFC_ETL.TBL_XML_RAW_CONFIG r on m.xpath_id = r.xpath_id
+join BIFC_ETL.TBL_PROJECT_GROUP g on m.project_group_id = g.project_group_id
+where g.group_name = @group_name
+and g.Project_Name = @project
+and r.master_detail = 'D'
+order by r.[level] desc
+
+print @root_node
+print @xmlNameSpaces
+
+declare @ix int = 1, @column_name varchar(200) = '', @column_count int = 1;
+declare @T_Cols table ([ix] int identity(1,1), category varchar(300), column_name varchar(200), sort int);
+declare @T_Scripts table ([ix] int identity(1,1), category varchar(300), script nvarchar(max), [columns] varchar(max), root_node nvarchar(1000))
+
+if(@result_type = 2 and len(@category) > 1)
+begin
+
+insert into @T_Cols(category, column_name, sort)
+select '' as category
+, concat(m.Category, '_', m.column_name)
+, min(m.sort) sort
+FROM [BIFC_ETL].[TBL_XML_PARSER_CONFIG] m
+join BIFC_ETL.TBL_XML_RAW_CONFIG r on m.xpath_id = r.xpath_id
+join BIFC_ETL.TBL_PROJECT_GROUP g on m.project_group_id = g.project_group_id
+where g.group_name = @group_name
+and g.Project_Name = @project
+group by concat(m.Category, '_', m.column_name)
+order by 3
+
+end
+else
+begin
+
+insert into @T_Cols(category, column_name, sort)
+select coalesce(m.category, '')
+, m.column_name
+, min(m.sort) sort
+FROM [BIFC_ETL].[TBL_XML_PARSER_CONFIG] m
+join BIFC_ETL.TBL_XML_RAW_CONFIG r on m.xpath_id = r.xpath_id
+join BIFC_ETL.TBL_PROJECT_GROUP g on m.project_group_id = g.project_group_id
+where g.group_name = @group_name
+and g.Project_Name = @project
+group by m.Category, m.column_name
+order by 3
+
+end
+
+declare @org_category varchar(300) = ''
+
+while (@ix <= (select count(*) from @T_Cols))
+begin
+
+select @column_name = column_name
+, @category = category 
+from @T_Cols where ix = @ix;
+
+if (@category <> @org_category and len(@org_category) > 0)
+begin
+
+	insert into @T_Scripts(category, script, [columns], root_node)
+	select @org_category, @sql, @columns, @root_node;
+
+	select @sql = '', @columns = '', @root_node = ''
+end
+
+select @column_count = count(*)
+FROM [BIFC_ETL].[TBL_XML_PARSER_CONFIG] m
+join BIFC_ETL.TBL_XML_RAW_CONFIG r on m.xpath_id = r.xpath_id
+join BIFC_ETL.TBL_PROJECT_GROUP g on m.project_group_id = g.project_group_id
+where g.group_name = @group_name
+and g.Project_Name = @project
+and m.column_name = @column_name
+and coalesce(m.category, '') = @category
+
+if (@column_count > 1)
+begin
+
+declare @sqlMCols nvarchar(max) = ''
+, @boolean_string bit = 0
+
+SELECT @sqlMCols = @sqlMCols + IIF(len(@sqlMCols) = 0, '  ', '
+  , ') + case r.master_detail
+when 'D' then 't' + cast(r.group_level as varchar(20)) + '.c.value(N''('
+		+ IIF(r.xpath = r.raw_group_root, '.', 
+			SUBSTRING(r.xpath, len(r.xpath)-CHARINDEX('/', reverse(r.xpath), 1)+2, len(r.xpath))) + ')[1]'', '
+--when 'D' then 't.c.value(''' + IIF(@maxLevel-r.[level] = 0, '', BIFC.FNC_RepeatString('../', @maxLevel-r.[level]))
+--		+ IIF(r.xpath = r.raw_group_root, '.', SUBSTRING(r.xpath, len(r.xpath)-CHARINDEX('/', reverse(r.xpath), 1)+2, len(r.xpath))) + '[1]'', '
+when 'M' then 'file_content.value(N''(' + r.xpath + ')[1]'', '
+end + case @result_type	--- 1:Name/Value Pair  2:Flat table
+		when 1 then '''nvarchar(max)'')'
+		when 2 then + '''' + m.data_type + IIF(m.data_length='', '', '(' + IIF(coalesce(m.boolean_string, 0) = 0, m.data_length, '10') + ')') + ''')' 
+		end
+, @boolean_string = coalesce(m.boolean_string, 0)
+, @root_node = IIF(r.master_detail = 'D', raw_group_root, '')
+FROM [BIFC_ETL].[TBL_XML_PARSER_CONFIG] m
+join BIFC_ETL.TBL_XML_RAW_CONFIG r on m.xpath_id = r.xpath_id
+join BIFC_ETL.TBL_PROJECT_GROUP g on m.project_group_id = g.project_group_id
+where g.group_name = @group_name
+and g.Project_Name = @project
+and IIF(@result_type = 2 and len(coalesce(m.category,'')) > 1,concat(m.Category, '_', m.column_name), m.column_name) = @column_name
+and IIF(@result_type = 1 and len(coalesce(m.category,'')) > 0, m.Category, @category) = @category
+
+SELECT @sql = @sql + IIF(len(@sql) = 0, '', '
+, ') + case when @boolean_string = 1 then IIF(@result_type=1, 'Cast(','') + '[BIFC].[FNC_BooleanString](' 
+			when @column_name in ('AC', 'AC_SN') then IIF(@result_type=1, 'Cast(','') + '[BIFC].[FNC_AC_Format](' else '' end 
+    + 'Coalesce(
+' + @sqlMCols + '
+)' + IIF(@boolean_string = 1 or @column_name in ('AC', 'AC_SN'), ')','') + IIF(@result_type=1 and (@boolean_string = 1 or @column_name in ('AC', 'AC_SN')), ' as nvarchar(max))' ,'') + ' as [' + @column_name + ']'
+, @columns = @columns + IIF(len(@columns) = 0, '', ', ') + '[' + @column_name + ']'
+
+--print concat(@column_name, ' ', @boolean_string)
+
+end
+else
+begin
+
+SELECT @sql = @sql + IIF(len(@sql) = 0, '', '
+, ') + case when m.boolean_string = 1 then IIF(@result_type=1, 'Cast(','') + '[BIFC].[FNC_BooleanString](' 
+			when m.column_name in ('AC', 'AC_SN') then IIF(@result_type=1, 'Cast(','') + '[BIFC].[FNC_AC_Format](' else '' end 
++ case r.master_detail
+when 'D' then 't' + cast(r.group_level as varchar(20)) + '.c.value(N''(' 
+		+ IIF(r.xpath = r.raw_group_root, '.', 
+			SUBSTRING(r.xpath, len(r.xpath)-CHARINDEX('/', reverse(r.xpath), 1)+2, len(r.xpath))) + ')[1]'', '
+when 'M' then 'file_content.value(N''(' + r.xpath + ')[1]'', '
+end + case @result_type	--- 1:Name/Value Pair  2:Flat table
+		when 1 then '''nvarchar(max)'')' 
+		when 2 then + '''' + m.data_type + IIF(m.data_length='', '', '(' + IIF(coalesce(m.boolean_string, 0) = 0, m.data_length, '10') + ')') + ''')' 
+		end + IIF(m.boolean_string = 1 or m.column_name in ('AC','AC_SN'), ')','') + IIF(@result_type=1 and (m.boolean_string = 1 or m.column_name in ('AC','AC_SN')), ' as nvarchar(max))' ,'') + ' as [' + IIF(@result_type = 2 and len(coalesce(m.category,'')) > 1,concat(m.Category, '_', m.column_name), m.column_name) + ']'
+, @columns = @columns + IIF(len(@columns) = 0, '', ', ') + '[' + m.column_name + ']'
+--, @root_node = IIF(r.master_detail = 'D', raw_group_root, '')
+FROM [BIFC_ETL].[TBL_XML_PARSER_CONFIG] m
+join BIFC_ETL.TBL_XML_RAW_CONFIG r on m.xpath_id = r.xpath_id
+join BIFC_ETL.TBL_PROJECT_GROUP g on m.project_group_id = g.project_group_id
+where g.group_name = @group_name
+and g.Project_Name = @project
+and IIF(@result_type = 2 and len(coalesce(m.category,'')) > 0,concat(m.Category, '_', m.column_name), m.column_name) = @column_name
+and IIF(@result_type = 1 and len(coalesce(m.category,'')) > 0, m.Category, @category) = @category
+
+end
+
+select @org_category = @category, @ix = @ix + 1
+
+end
+
+insert into @T_Scripts(category, script, [columns], root_node)
+select @org_category, @sql, @columns, @root_node
+
+select @sql = '', @ix = 1;
+declare @sql_final nvarchar(max) = ''
+, @cross_ix int = 1, @parent_level varchar(20), @parent_root nvarchar(1000) = '', @cross_apply nvarchar(max)= ''
+
+while (@ix <= (select count(*) from @T_Scripts))
+begin
+
+select @category = category
+, @sql = script 
+, @columns = [columns]
+, @root_node = root_node
+from @T_Scripts where ix=@ix
+
+declare @T_CrossApply Table (ix int identity(1,1), [level] varchar(20), [raw_group_root] nvarchar(1000))
+
+insert into @T_CrossApply ([raw_group_root], [level])
+select distinct r.[raw_group_root] 
+, r.group_level
+FROM [BIFC_ETL].[TBL_XML_PARSER_CONFIG] m
+join [BIFC_ETL].[TBL_XML_RAW_CONFIG] r on m.xpath_id = r.xpath_id
+join [BIFC_ETL].[TBL_PROJECT_GROUP] g on m.project_group_id = g.project_group_id
+cross apply BIFC.FNC_SplitString(r.raw_group_root, '/') t
+where g.Project_Name = @project
+and g.Group_Name = @group_name
+and m.category = @category
+and r.master_detail = 'D'
+order by 2
+
+while (@cross_ix <= (select max(ix) from @T_CrossApply))
+begin
+
+if (@cross_ix = 1)
+	select @cross_apply = 'cross apply file_content.nodes(N'''  + [raw_group_root] + ''') t' + [level] + '(c)' from @T_CrossApply where ix = @cross_ix
+else
+begin
+
+select @cross_apply += '
+cross apply t' + @parent_level + '.c.nodes(N'''  + replace([raw_group_root], @parent_root + '/', '')  + ''') t' + [level] + '(c)' from @T_CrossApply where ix = @cross_ix
+
+end
+
+select @parent_level=[level], @parent_root=[raw_group_root], @cross_ix+=1 from @T_CrossApply where ix=@cross_ix
+
+end
+--print @cross_apply
+select @sql = 'select [file_id], ' + IIF(@with_file_date = 1, '[file_date], ', '') +
+ + IIF(@result_type = 1 and len(@category) = 0, 'newid() as [row_id], ', '') + @sql + '
+from BIFC.TBL_DATA_RAW with (nolock) ' + IIF(len(@root_node) = 0, '', '
+' + @cross_apply) + '
+where [source] = ''' + @source + ''' and xml_version = ''' + @xml_version + ''' and '
++ IIF (@file_id is not null, '[file_id] = ' + cast(@File_Id as varchar(20)) + ''
+, '[file_date] >= ''' + FORMAT(@start_date, 'yyyy/MM/dd', 'en-US') + ''' and [file_date] < ''' + FORMAT(DateAdd(day, 1, @end_date), 'yyyy/MM/dd', 'en-US') + '''')
+
+select @sql = IIF(len(@xmlNameSpaces) > 0, 'WITH XMLNAMESPACES (DEFAULT ''' + @xmlNameSpaces + ''')
+', '') + case @result_type 
+when 1 then 'select [file_id], ' + IIF(@with_file_date = 1, '[file_date], ', '') + IIF(len(@category) = 0, '''' +  @group_name + ''' as [group], [row_id],', '''' +  @category + ''' as [category],')
++ ' [column_name], [column_value]
+from (
+' + @sql + '
+) p unpivot ([column_value] for [column_name] in (' + @columns + ')) x'
+when 2 then @sql end;
+
+set @ix = @ix + 1;
+
+set @sql_final = @sql_final + IIF(len(@sql_final) > 0, '
+union all
+', '') + @sql
+
+end
+
+if (@debug = 1)
+	select @sql_final;
+else
+begin
+
+begin try
+	exec sp_executesql @sql_final;
+end try
+begin catch
+	declare @msg nvarchar(max) = concat('Group Name:', @group_name, ' Error Message:', error_message())
+	RaisError(@msg, 16, 1);
+end catch
+
+end
+
+*/
+
+end
+
+GO
